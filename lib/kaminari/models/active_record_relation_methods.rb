@@ -7,9 +7,9 @@ module Kaminari
         limit_value ? length : super
       end
     end
-    
+
     def current_page_count #:nodoc:
-      count
+      uniq_value ? length : count
     end
 
     def total_count #:nodoc:
@@ -24,8 +24,7 @@ module Kaminari
         c = c.except(:includes) unless references_eager_loaded_tables?
 
         # a workaround to count the actual model instances on distinct query because count + distinct returns wrong value in some cases. see https://github.com/amatsuda/kaminari/pull/160
-        uses_distinct_sql_statement = c.to_sql =~ /DISTINCT/i
-        if uses_distinct_sql_statement
+        if uniq_value
           c.length
         else
           # .group returns an OrderdHash that responds to #count
