@@ -15,7 +15,7 @@ module Kaminari
     # * <tt>:remote</tt> - Ajax? (false by default)
     # * <tt>:ANY_OTHER_VALUES</tt> - Any other hash key & values would be directly passed into each tag as :locals value.
     def paginate(scope, options = {}, &block)
-      paginator = Kaminari::Helpers::Paginator.new self, options.reverse_merge(:current_page => scope.current_page, :num_pages => scope.num_pages, :per_page => scope.limit_value, :param_name => Kaminari.config.param_name, :remote => false)
+      paginator = Kaminari::Helpers::Paginator.new self, options.reverse_merge(:current_page => scope.current_page, :total_pages => scope.total_pages, :per_page => scope.limit_value, :param_name => Kaminari.config.param_name, :remote => false)
       paginator.to_s
     end
 
@@ -86,22 +86,68 @@ module Kaminari
     #   <%= page_entries_info @posts, :entry_name => 'item' %>
     #   #-> Displaying items 6 - 10 of 26 in total
     def page_entries_info(collection, options = {})
-      entry_name = options[:entry_name] unless options[:entry_name].nil?
-      entry_name ||= collection.first.class.model_name.human.downcase unless collection.empty?
-      entry_name ||= 'entry'
+      entry_name = options[:entry_name] || (collection.empty? ? 'entry' : collection.first.class.name.underscore.sub('_', ' '))
 
+      entry_name = if collection.empty?
+        'entry'
+      elsif options[:entry_name]
+        options[:entry_name]
+      else
+        if collection.respond_to? :model  # DataMapper
+          collection.model.model_name.human.downcase
+        else  # AR
+          collection.model_name.human.downcase
+        end
+      end
       entry_name = entry_name.pluralize unless collection.total_count == 1
 
-      if collection.num_pages < 2
-        output = t("helpers.page_entries_info.one_page.display_entries", { :count => collection.total_count, :entry_name => entry_name })
+      if collection.total_pages < 2
+        t('helpers.page_entries_info.one_page.display_entries', :entry_name => entry_name, :count => collection.total_count)
       else
-        offset = (collection.current_page - 1) * collection.limit_value
-        output = t("helpers.page_entries_info.more_pages.display_entries", { :entry_name => entry_name,
-                                                                             :first => offset + 1,
-                                                                             :last => offset + collection.current_page_count,
-                                                                             :total => collection.total_count })
+        first = collection.offset_value + 1
+        last = collection.last_page? ? collection.total_count : collection.offset_value + collection.limit_value
+        t('helpers.page_entries_info.more_pages.display_entries', :entry_name => entry_name, :first => first, :last => last, :total => collection.total_count)
+      end.html_safe
+    end
+
+    # Renders rel="next" and rel="prev" links to be used in the head.
+    #
+    # ==== Examples
+    # Basic usage:
+    #
+    #   In head:
+    #   <head>
+    #     <title>My Website</title>
+    #     <%= yield :head %>
+    #   </head>
+    #
+    #   Somewhere in body:
+    #   <% content_for :head do %>
+    #     <%= rel_next_prev_link_tags @items %>
+    #   <% end %>
+    #
+    #   #-> <link rel="next" href="/items/page/3" /><link rel="prev" href="/items/page/1" />
+    #
+    def rel_next_prev_link_tags(scope, options = {})
+      params = options.delete(:params) || {}
+      param_name = options.delete(:param_name) || Kaminari.config.param_name
+
+      output = ""
+
+      if !scope.first_page? && !scope.last_page?
+        # If not first and not last, then output both links.
+        output << '<link rel="next" href="' + url_for(params.merge(param_name => (scope.current_page + 1))) + '"/>'
+        output << '<link rel="prev" href="' + url_for(params.merge(param_name => (scope.current_page - 1))) + '"/>'
+      elsif scope.first_page?
+        # If first page, add next link unless last page.
+        output << '<link rel="next" href="' + url_for(params.merge(param_name => (scope.current_page + 1))) + '"/>' unless scope.last_page?
+      else
+        # If last page, add prev link unless first page.
+        output << '<link rel="prev" href="' + url_for(params.merge(param_name => (scope.current_page - 1))) + '"/>' unless scope.first_page?
       end
+
       output.html_safe
     end
+
   end
 end

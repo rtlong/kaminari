@@ -11,7 +11,7 @@ describe 'Kaminari::ActionViewExtension' do
 
     context 'escaping the pagination for javascript' do
       it 'should escape for javascript' do
-        lambda { escape_javascript(helper.paginate @users, :params => {:controller => 'users', :action => 'index'}) }.should_not raise_error
+        lambda { helper.escape_javascript(helper.paginate @users, :params => {:controller => 'users', :action => 'index'}) }.should_not raise_error
       end
     end
   end
@@ -27,11 +27,11 @@ describe 'Kaminari::ActionViewExtension' do
       context 'the default behaviour' do
         subject { helper.link_to_previous_page @users, 'Previous', :params => {:controller => 'users', :action => 'index'} }
         it { should be_a String }
-        it { should match /rel="previous"/ }
+        it { should match(/rel="previous"/) }
       end
       context 'overriding rel=' do
         subject { helper.link_to_previous_page @users, 'Previous', :rel => 'external', :params => {:controller => 'users', :action => 'index'} }
-        it { should match /rel="external"/ }
+        it { should match(/rel="external"/) }
       end
     end
     context 'the first page' do
@@ -82,7 +82,7 @@ describe 'Kaminari::ActionViewExtension' do
 
       context 'having 1 entry' do
         before do
-          User.create!
+          User.create! :name => 'user1'
           @users = User.page(1).per(25)
         end
         subject { helper.page_entries_info @users, :params => {:controller => 'users', :action => 'index'} }
@@ -96,7 +96,7 @@ describe 'Kaminari::ActionViewExtension' do
 
       context 'having more than 1 but less than a page of entries' do
         before do
-          10.times {|i| User.create!}
+          10.times {|i| User.create! :name => "user#{i}"}
           @users = User.page(1).per(25)
         end
         subject { helper.page_entries_info @users, :params => {:controller => 'users', :action => 'index'} }
@@ -110,7 +110,7 @@ describe 'Kaminari::ActionViewExtension' do
 
       context 'having more than one page of entries' do
         before do
-          50.times {|i| User.create!}
+          50.times {|i| User.create! :name => "user#{i}"}
         end
 
         describe 'the first page' do
@@ -208,6 +208,42 @@ describe 'Kaminari::ActionViewExtension' do
           end
         end
       end
+    end
+  end
+
+  describe '#rel_next_prev_link_tags' do
+    before do
+      75.times {|i| User.create! :name => "user#{i}"}
+    end
+    context 'the first page' do
+      before do
+        @users = User.page(1).per(25)
+      end
+
+      subject { helper.rel_next_prev_link_tags @users, :params => {:controller => 'users', :action => 'index'} }
+      it { should be_a String }
+      it { should match(/rel="next"/) }
+      it { should_not match(/rel="prev"/) }
+    end
+    context 'the middle page' do
+      before do
+        @users = User.page(2).per(25)
+      end
+
+      subject { helper.rel_next_prev_link_tags @users, :params => {:controller => 'users', :action => 'index'} }
+      it { should be_a String }
+      it { should match(/rel="next"/) }
+      it { should match(/rel="prev"/) }
+    end
+    context 'the last page' do
+      before do
+        @users = User.page(3).per(25)
+      end
+
+      subject { helper.rel_next_prev_link_tags @users, :params => {:controller => 'users', :action => 'index'} }
+      it { should be_a String }
+      it { should_not match(/rel="next"/) }
+      it { should match(/rel="prev"/) }
     end
   end
 end
